@@ -1,0 +1,5 @@
+aelog>=1.0.3
+aiohttp>=3.3.2
+cchardet
+aiodns
+requests>=2.21.0
