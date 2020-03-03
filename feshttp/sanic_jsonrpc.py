@@ -25,7 +25,6 @@ class SanicJsonRPC(object):
             app: app应用
             post_route: post url
             ws_route: websocket url
-
         """
         self.jrpc = None
         self.post_route: str = post_route

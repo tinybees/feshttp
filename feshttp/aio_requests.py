@@ -67,9 +67,9 @@ class AIORequests(BaseRequestsMixIn, Singleton):
         Returns:
 
         """
+        self.app = app
         self._verify_sanic_app()  # 校验APP类型是否正确
 
-        self.app = app
         self.timeout = timeout or app.config.get("ACLIENTS_HTTP_TIMEOUT", None) or self.timeout
         self.verify_ssl = verify_ssl or app.config.get("ACLIENTS_HTTP_VERIFYSSL", None) or self.verify_ssl
         message = message or app.config.get("ACLIENTS_HTTP_MESSAGE", None) or self.message
