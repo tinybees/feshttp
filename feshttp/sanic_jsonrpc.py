@@ -6,13 +6,9 @@
 @software: PyCharm
 @time: 2020/2/21 下午5:00
 """
-import asyncio
-from asyncio import Queue
-from typing import Dict, Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 __all__ = ("SanicJsonRPC",)
-
-_Annotations = Dict[str, type]
 
 
 class SanicJsonRPC(object):
@@ -46,51 +42,38 @@ class SanicJsonRPC(object):
 
         """
         try:
-            from sanic_jsonrpc import Jsonrpc
+            from sanic_jsonrpc import SanicJsonrpc
             from sanic_jsonrpc import __version__
-            if __version__ != "0.1.1":
+            # noinspection PyProtectedMember
+            from sanic_jsonrpc._routing import Route
+
+            if __version__ != "0.2.2":
                 raise ImportError("sanic_jsonrpc version error!")
         except ImportError as e:
-            raise ImportError(f"import sanic_jsonrpc error, please 'pip install sanic-jsonrpc==0.1.1', {e}")
+            raise ImportError(f"import sanic_jsonrpc error, please 'pip install sanic-jsonrpc==0.2.2', {e}")
 
         # noinspection PyMissingConstructor
-        class JsonRPC(Jsonrpc):
+        class JsonRPC(SanicJsonrpc):
             """
 
             """
 
-            @staticmethod
-            def _annotations(annotations: _Annotations, extra: _Annotations) -> Tuple[Optional[_Annotations],
-                                                                                      Optional[type]]:
-                result = annotations.pop('return', None)
-                result = extra.pop('result', result)
-                annotations.update(extra)
-                return annotations or None, None
+            def __call__(self, method_: Optional[str] = None, *,
+                         is_post_: Tuple[bool, ...] = (True, False),
+                         is_request_: Tuple[bool, ...] = (True, False),
+                         **annotations: type) -> Callable:
+                if isinstance(method_, Callable):
+                    return self.__call__(is_post_=is_post_, is_request_=is_request_)(method_)
 
-            def __init__(self, app_, post_route_: Optional[str] = None, ws_route_: Optional[str] = None):
-                self.app = app_
+                def deco(func: Callable) -> Callable:
+                    route = Route.from_inspect(func, method_, annotations)
+                    route.result = None  # 不进行返回值的类型校验
+                    self._routes.update({(ip, ir, route.method): route for ip in is_post_ for ir in is_request_})
+                    return func
 
-                if post_route_:
-                    self.app.add_route(self._post, post_route_, methods=frozenset({'POST'}))
-
-                if ws_route_:
-                    self.app.add_websocket_route(self._ws, ws_route_)
-
-                self._routes = {}
-                self._calls = None
-                self._processing_task = None
-
-                @app_.listener('after_server_start')
-                async def start_processing(_app, _loop):
-                    self._calls = Queue()
-                    self._processing_task = asyncio.ensure_future(self._processing())
-
-                @app_.listener('before_server_stop')
-                async def finish_calls(_app, _loop):
-                    self._processing_task.cancel()
-                    await self._processing_task
+                return deco
 
         self.post_route = post_route or self.post_route
         self.ws_route = ws_route or self.ws_route
 
-        self.jrpc = JsonRPC(app, post_route_=self.post_route, ws_route_=self.ws_route)
+        self.jrpc = JsonRPC(app, post_route=self.post_route, ws_route=self.ws_route)
