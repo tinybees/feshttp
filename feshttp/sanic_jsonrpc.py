@@ -8,9 +8,11 @@
 """
 import asyncio
 from asyncio import Queue
-from typing import Optional
+from typing import Dict, Optional, Tuple
 
 __all__ = ("SanicJsonRPC",)
+
+_Annotations = Dict[str, type]
 
 
 class SanicJsonRPC(object):
@@ -57,6 +59,14 @@ class SanicJsonRPC(object):
 
             """
 
+            @staticmethod
+            def _annotations(annotations: _Annotations, extra: _Annotations) -> Tuple[Optional[_Annotations],
+                                                                                      Optional[type]]:
+                result = annotations.pop('return', None)
+                result = extra.pop('result', result)
+                annotations.update(extra)
+                return annotations or None, None
+
             def __init__(self, app_, post_route_: Optional[str] = None, ws_route_: Optional[str] = None):
                 self.app = app_
 
@@ -72,7 +82,7 @@ class SanicJsonRPC(object):
 
                 @app_.listener('after_server_start')
                 async def start_processing(_app, _loop):
-                    self._calls = Queue(loop=_loop)
+                    self._calls = Queue()
                     self._processing_task = asyncio.ensure_future(self._processing())
 
                 @app_.listener('before_server_stop')

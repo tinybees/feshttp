@@ -7,6 +7,7 @@
 @time: 2020/2/21 下午1:47
 """
 import asyncio
+from typing import Dict, List
 
 from sanic import Sanic
 
@@ -18,9 +19,9 @@ jsonrpc.init_app(app)
 
 
 @jsonrpc.jrpc
-async def sub(a: int, b: int) -> int:
+async def sub(a: int, b: int) -> List[Dict]:
     await asyncio.sleep(0.1)
-    return a - b
+    return [{"a": a, "b": b, "c": "c"}]
 
 
 @jsonrpc.jrpc
