@@ -117,7 +117,7 @@ def _dump_arg_defaults(kwargs):
     kwargs.setdefault('sort_keys', True)
     kwargs.setdefault('cls', JSONEncoder)
     kwargs.setdefault('ensure_ascii', False)
-    kwargs.setdefault('encoding', "utf-8")
+    # kwargs.setdefault('encoding', "utf-8")
 
 
 def _load_arg_defaults(kwargs):
