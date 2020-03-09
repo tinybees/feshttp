@@ -2,4 +2,5 @@ aelog>=1.0.3
 aiohttp>=3.3.2
 cchardet
 aiodns
+simplejson
 requests>=2.21.0

@@ -12,6 +12,7 @@ from typing import Dict
 
 import aelog
 import aiohttp
+import simplejson as json
 
 from ._err_msg import http_msg
 from ._requests import BaseRequestsMixIn
@@ -87,7 +88,7 @@ class AIORequests(BaseRequestsMixIn, Singleton):
 
             """
             jar = aiohttp.CookieJar(unsafe=self.cookiejar_unsafe)
-            self.session = aiohttp.ClientSession(cookie_jar=jar)
+            self.session = aiohttp.ClientSession(loop=loop, cookie_jar=jar, json_serialize=json.dumps)
 
         @app.listener('after_server_stop')
         async def close_connection(app_, loop):

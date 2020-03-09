@@ -8,6 +8,7 @@
 - 增加jrpc客户端批量方法请求的功能,调用形式类似链式调用
 - 增加jrpc服务端jsonrpc子类, http和websocket的URL固定和client中的一致
 - 拆分aclients库和eclients中的请求和RPC功能到此库中
+- 增加默认使用simplejson的功能
 
 #### Changed 
 - 优化所有代码中没有类型标注的地方,都改为typing中的类型标注
