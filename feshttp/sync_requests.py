@@ -7,18 +7,147 @@
 @time: 18-7-1 上午10:08
 """
 import atexit
-from typing import Dict
+from http import cookiejar as cookielib
+from io import UnsupportedOperation
+from typing import Dict, Mapping
 
 import requests
+from requests import PreparedRequest, Session
+from requests.cookies import RequestsCookieJar, cookiejar_from_dict, merge_cookies
 from requests.exceptions import ConnectTimeout, ConnectionError, HTTPError, RequestException, Timeout
+from requests.sessions import merge_hooks, merge_setting
+from requests.structures import CaseInsensitiveDict
+from requests.utils import get_netrc_auth, super_len
 
 from ._err_msg import http_msg
+from ._json import dumps
 from ._requests import BaseRequestsMixIn
 from ._response import Response
 from .err import ClientConnectionError, ClientError, ClientResponseError
 from .utils import Singleton, _verify_message
 
 __all__ = ("SyncRequests",)
+
+
+class CustomPreparedRequest(PreparedRequest):
+    """
+    自定义prepared类 用于dumps时间使用
+    """
+
+    def prepare_body(self, data, files, json=None):
+        """Prepares the given HTTP body data."""
+
+        # Check if file, fo, generator, iterator.
+        # If not, run through normal process.
+
+        # Nottin' on you.
+        body = None
+        content_type = None
+
+        if not data and json is not None:
+            # urllib3 requires a bytes-like body. Python 2's json.dumps
+            # provides this natively, but Python 3 gives a Unicode string.
+            content_type = 'application/json'
+            body = dumps(json)
+            if not isinstance(body, bytes):
+                body = body.encode('utf-8')
+
+        is_stream = all([
+            hasattr(data, '__iter__'),
+            not isinstance(data, ((str, bytes), list, tuple, Mapping))
+        ])
+
+        try:
+            length = super_len(data)
+        except (TypeError, AttributeError, UnsupportedOperation):
+            length = None
+
+        if is_stream:
+            body = data
+
+            if getattr(body, 'tell', None) is not None:
+                # Record the current file position before reading.
+                # This will allow us to rewind a file in the event
+                # of a redirect.
+                try:
+                    self._body_position = body.tell()
+                except (IOError, OSError):
+                    # This differentiates from None, allowing us to catch
+                    # a failed `tell()` later when trying to rewind the body
+                    self._body_position = object()
+
+            if files:
+                raise NotImplementedError('Streamed bodies and files are mutually exclusive.')
+
+            if length:
+                self.headers['Content-Length'] = str(length)
+            else:
+                self.headers['Transfer-Encoding'] = 'chunked'
+        else:
+            # Multi-part file uploads.
+            if files:
+                (body, content_type) = self._encode_files(files, data)
+            else:
+                if data:
+                    body = self._encode_params(data)
+                    if isinstance(data, (str, bytes)) or hasattr(data, 'read'):
+                        content_type = None
+                    else:
+                        content_type = 'application/x-www-form-urlencoded'
+
+            self.prepare_content_length(body)
+
+            # Add content-type if it wasn't explicitly provided.
+            if content_type and ('content-type' not in self.headers):
+                self.headers['Content-Type'] = content_type
+
+        self.body = body
+
+
+class CustomSession(Session):
+    """
+    自定义session
+    """
+
+    def prepare_request(self, request):
+        """Constructs a :class:`PreparedRequest <PreparedRequest>` for
+        transmission and returns it. The :class:`PreparedRequest` has settings
+        merged from the :class:`Request <Request>` instance and those of the
+        :class:`Session`.
+
+        :param request: :class:`Request` instance to prepare with this
+            session's settings.
+        :rtype: requests.PreparedRequest
+        """
+        cookies = request.cookies or {}
+
+        # Bootstrap CookieJar.
+        if not isinstance(cookies, cookielib.CookieJar):
+            cookies = cookiejar_from_dict(cookies)
+
+        # Merge with session cookies
+        merged_cookies = merge_cookies(
+            merge_cookies(RequestsCookieJar(), self.cookies), cookies)
+
+        # Set environment's basic authentication if not explicitly set.
+        auth = request.auth
+        if self.trust_env and not auth and not self.auth:
+            auth = get_netrc_auth(request.url)
+
+        p = CustomPreparedRequest()
+        p.prepare(
+            method=request.method.upper(),
+            url=request.url,
+            files=request.files,
+            data=request.data,
+            json=request.json,
+            headers=merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict),
+            params=merge_setting(request.params, self.params),
+            auth=merge_setting(auth, self.auth),
+            cookies=merged_cookies,
+            hooks=merge_hooks(request.hooks, self.hooks),
+        )
+        return p
 
 
 class SyncRequests(BaseRequestsMixIn, Singleton):
@@ -83,7 +212,7 @@ class SyncRequests(BaseRequestsMixIn, Singleton):
             Returns:
 
             """
-            self.session = requests.Session()
+            self.session = CustomSession()
 
         @atexit.register
         def close_connection():
@@ -114,7 +243,7 @@ class SyncRequests(BaseRequestsMixIn, Singleton):
         use_zh = use_zh or self.use_zh
         self.message = _verify_message(http_msg, message or self.message)
         self.msg_zh = "msg_zh" if use_zh else "msg_en"
-        self.session = requests.Session()
+        self.session = CustomSession()
 
         @atexit.register
         def close_connection():

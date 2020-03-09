@@ -12,9 +12,9 @@ from typing import Dict
 
 import aelog
 import aiohttp
-import simplejson as json
 
 from ._err_msg import http_msg
+from ._json import dumps, loads
 from ._requests import BaseRequestsMixIn
 from ._response import Response
 from .err import ClientConnectionError, ClientError, ClientResponseError, HttpError
@@ -88,7 +88,7 @@ class AIORequests(BaseRequestsMixIn, Singleton):
 
             """
             jar = aiohttp.CookieJar(unsafe=self.cookiejar_unsafe)
-            self.session = aiohttp.ClientSession(loop=loop, cookie_jar=jar, json_serialize=json.dumps)
+            self.session = aiohttp.ClientSession(loop=loop, cookie_jar=jar, json_serialize=dumps)
 
         @app.listener('after_server_stop')
         async def close_connection(app_, loop):
@@ -130,7 +130,7 @@ class AIORequests(BaseRequestsMixIn, Singleton):
 
             """
             jar = aiohttp.CookieJar(unsafe=self.cookiejar_unsafe)
-            self.session = aiohttp.ClientSession(cookie_jar=jar)
+            self.session = aiohttp.ClientSession(cookie_jar=jar, json_serialize=dumps)
 
         async def close_connection():
             """
@@ -235,7 +235,7 @@ class AIORequests(BaseRequestsMixIn, Singleton):
 
         async with resp:
             try:
-                resp_json = await resp.json()
+                resp_json = await resp.json(loads=loads)
             except (ValueError, TypeError, aiohttp.ContentTypeError):
                 try:
                     resp_text = await resp.text()
