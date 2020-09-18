@@ -202,17 +202,8 @@ class SyncRequests(BaseRequestsMixIn, Singleton):
 
         self.message = _verify_message(http_msg, message)
         self.msg_zh = "msg_zh" if use_zh else "msg_en"
-
-        @app.before_first_request
-        def open_connection():
-            """
-
-            Args:
-
-            Returns:
-
-            """
-            self.session = CustomSession()
+        # 初始化session
+        self.session = CustomSession()
 
         @atexit.register
         def close_connection():
@@ -243,6 +234,7 @@ class SyncRequests(BaseRequestsMixIn, Singleton):
         use_zh = use_zh or self.use_zh
         self.message = _verify_message(http_msg, message or self.message)
         self.msg_zh = "msg_zh" if use_zh else "msg_en"
+        # 初始化session
         self.session = CustomSession()
 
         @atexit.register

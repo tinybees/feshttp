@@ -17,4 +17,4 @@ from .sanic_jsonrpc import *
 
 __all__ = ("AIORequests", "SyncRequests", "Response", "Singleton", "AIOJRPClient", "SanicJsonRPC")
 
-__version__ = "1.0.0b1"
+__version__ = "1.0.0b2"
